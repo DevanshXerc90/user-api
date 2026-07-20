@@ -302,3 +302,105 @@ This project ships with a multi-stage `Dockerfile` and a `docker-compose.yml` th
 
 This project is designed to be easy to read, extend, and operate, making it a solid reference for idiomatic Go REST API development with a pragmatic, production-oriented stack.
 
+---
+
+## Two Implementations: Go and NestJS
+
+This repository contains **two complete, independent implementations** of the same User Management REST API, living side by side:
+
+| Path | Language | Framework |
+|---|---|---|
+| `/` (root) | Go 1.22 | GoFiber |
+| `/nestjs-version` | TypeScript / Node.js | NestJS + TypeORM |
+
+### Why Two Implementations?
+
+This repo serves as a **direct architectural comparison** of how two modern ecosystems solve the same problem. Both services:
+
+- Expose the **exact same 5 endpoints** (`POST`, `GET list`, `GET by ID`, `PUT`, `DELETE` on `/users`)
+- Persist to the **same PostgreSQL database** and **same `users` table** (schema owned by the Go migration)
+- Implement the **same age-calculation algorithm** (year diff, birthday-not-yet-passed adjustment, clamped to ≥ 0)
+- Use **structured JSON logging** with matching field names (`level`, `msg`, `method`, `path`, `duration`)
+- Apply **request-ID tracing middleware** that reads or generates an `X-Request-Id` header
+
+The goal is to let you compare the **idioms, ergonomics, and trade-offs** of each ecosystem for building REST APIs.
+
+---
+
+### How to Run Both Services Together (Docker Compose)
+
+The `docker-compose.yml` at the project root starts **all three containers**:
+
+```bash
+docker compose up --build
+```
+
+| Service | URL | Container |
+|---|---|---|
+| Go API | http://localhost:3000/users | `user-api-go` |
+| NestJS API | http://localhost:3001/users | `user-api-nestjs` |
+| PostgreSQL | localhost:5432 | `jeevan-db` |
+
+The Go migration (`db/migrations/001_users.sql`) is automatically applied to Postgres on first start via Docker's `initdb.d` mount.
+
+---
+
+### How to Run Each Service Individually
+
+#### Go API (port 3000)
+
+```bash
+# From the repo root
+export DATABASE_URL=postgres://postgres:postgres@localhost:5432/jeevan?sslmode=disable
+go run ./cmd/server
+```
+
+#### NestJS API (port 3001)
+
+```bash
+cd nestjs-version
+cp .env.example .env     # edit DATABASE_URL and PORT if needed
+npm install
+npm run start:dev        # development mode with hot reload
+# or
+npm run build && npm run start:prod
+```
+
+#### Run NestJS Tests
+
+```bash
+cd nestjs-version
+npm test                 # unit tests
+npm run test:cov         # with coverage report
+```
+
+---
+
+### Architecture Comparison
+
+| Dimension | Go / GoFiber | NestJS / TypeORM |
+|---|---|---|
+| **Language** | Go 1.22 (compiled, statically typed) | TypeScript 5 (compiled to JS, runs on Node.js) |
+| **Framework** | GoFiber (fasthttp-based, ultra-low overhead) | NestJS (Express under the hood, decorators-first) |
+| **Architecture** | Manual layering: handler → service → repository | NestJS enforced modules: Controller → Service → Repository |
+| **Database access** | SQLC — raw SQL compiled to type-safe Go code | TypeORM — decorator-based ORM with Repository pattern |
+| **Validation** | `go-playground/validator` struct tags (`required`, `min=1`) | `class-validator` decorators (`@IsNotEmpty`, `@MinLength`) |
+| **Middleware** | Fiber `app.Use()` handlers (functional) | NestJS `MiddlewareConsumer` (class-based, `NestMiddleware`) |
+| **Request ID** | Fiber's numeric connection counter | UUID v4 |
+| **Error shape** | `{"error":"...","details":"..."}` (fiber.Map) | `{"error":"...","details":[...]}` (HttpExceptionFilter) |
+| **Not-Found (GET/PUT)** | 500 (bug — error bubbles up) | 404 NotFoundException ✅ |
+| **Schema management** | SQLC + raw SQL migrations | TypeORM with `synchronize: false` (reuses Go schema) |
+| **Structured logging** | Uber Zap (production JSON) | `process.stdout.write` JSON (same field schema as Zap) |
+| **Test framework** | Go's built-in `testing` package | Jest + `@nestjs/testing` |
+| **Docker image** | distroless/base (tiny, no shell) | node:20-alpine (small Node runtime) |
+| **Port** | 3000 | 3001 |
+
+### Known Behavioural Divergences
+
+| # | Behaviour | Go | NestJS |
+|---|---|---|---|
+| 1 | GET/PUT by missing ID | 500 Internal Server Error (db error bubbles) | 404 Not Found ✅ |
+| 2 | Request ID fallback | Fiber numeric connection ID | UUID v4 |
+| 3 | `age` on POST response | Omitted if 0 (`omitempty`) | Always present |
+| 4 | Validation error `details` | Raw validator string | Structured array of messages |
+

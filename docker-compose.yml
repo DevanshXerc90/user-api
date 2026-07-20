@@ -1,6 +1,7 @@
 version: "3.9"
 
 services:
+  # ─────────────────────── Shared PostgreSQL ────────────────────────────────
   db:
     image: postgres:15
     container_name: jeevan-db
@@ -8,14 +9,43 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: jeevan
-    
+    # Expose Postgres locally for direct psql access / migrations
+    ports:
+      - "5432:5432"
+    volumes:
+      # Run the Go migration on container first start
+      - ./db/migrations:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
+  # ─────────────────────── Go / Fiber API (port 3000) ──────────────────────
   api:
-    build: .
-    container_name: user-api
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: user-api-go
     environment:
       DATABASE_URL: postgres://postgres:postgres@db:5432/jeevan?sslmode=disable
     ports:
       - "3000:3000"
     depends_on:
-      - db
+      db:
+        condition: service_healthy
+
+  # ─────────────────────── NestJS API (port 3001) ──────────────────────────
+  nestjs-api:
+    build:
+      context: ./nestjs-version
+      dockerfile: Dockerfile
+    container_name: user-api-nestjs
+    environment:
+      DATABASE_URL: postgres://postgres:postgres@db:5432/jeevan?sslmode=disable
+      PORT: 3001
+    ports:
+      - "3001:3001"
+    depends_on:
+      db:
+        condition: service_healthy
