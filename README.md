@@ -275,6 +275,7 @@ This project ships with a multi-stage `Dockerfile` and a `docker-compose.yml` th
 
 - **Unit tests**
 	- Age calculation logic is covered by unit tests to ensure correctness across edge cases (e.g. leap years, birthdays).
+	- NestJS coverage from `npm run test:cov`: 81.08% statements, 75.55% branches, 90.32% functions, 80.98% lines.
 
 - **Run tests**
 
@@ -295,6 +296,7 @@ This project ships with a multi-stage `Dockerfile` and a `docker-compose.yml` th
 - Add authentication and authorization (e.g. JWT-based auth).
 - Add OpenAPI/Swagger documentation for the REST endpoints.
 - Introduce more extensive test coverage across handlers, services, and repositories.
+- Benchmark request latency under load and publish p95/p99 results.
 - Add health check and readiness endpoints for production deployments.
 - Integrate CI/CD pipelines and deployment manifests (Kubernetes, etc.).
 

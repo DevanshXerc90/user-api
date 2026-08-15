@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/cors"
 	_ "github.com/lib/pq"
 	"go.uber.org/zap"
 
@@ -72,6 +73,7 @@ func main() {
 	})
 
 	// Global middleware
+	app.Use(cors.New())
 	app.Use(middleware.RequestID())
 	app.Use(middleware.RequestLogger(loggr))
 

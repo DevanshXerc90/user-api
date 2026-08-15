@@ -8,6 +8,8 @@ import { User } from '../user.entity';
 
 // ─────────────────────────── Helpers ─────────────────────────────────────
 
+const FIXED_NOW = new Date('2026-07-20T12:00:00Z');
+
 /** Build a mock User entity for test scenarios */
 function makeUser(overrides: Partial<User> = {}): User {
   const user = new User();
@@ -33,7 +35,12 @@ const mockRepo = {
 describe('UsersService', () => {
   let service: UsersService;
 
+  beforeAll(() => {
+    jest.useFakeTimers();
+  });
+
   beforeEach(async () => {
+    jest.setSystemTime(FIXED_NOW);
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         UsersService,
@@ -43,6 +50,10 @@ describe('UsersService', () => {
 
     service = module.get<UsersService>(UsersService);
     jest.clearAllMocks();
+  });
+
+  afterAll(() => {
+    jest.useRealTimers();
   });
 
   // ═══════════════════════ calculateAge ══════════════════════════════════
@@ -94,6 +105,15 @@ describe('UsersService', () => {
       const isDecember31 = today.getMonth() === 11 && today.getDate() === 31;
       expect(age).toBe(isDecember31 ? 30 : 29);
     });
+
+    it('handles a Feb 29 birthday on a non-leap year boundary', () => {
+      jest.setSystemTime(new Date('2025-02-28T12:00:00Z'));
+
+      const dob = new Date(2000, 1, 29);
+      const age = service.calculateAge(dob);
+
+      expect(age).toBe(24);
+    });
   });
 
   // ═══════════════════════ createUser ════════════════════════════════════
@@ -115,6 +135,18 @@ describe('UsersService', () => {
       expect(result.age).toBeGreaterThanOrEqual(0);
     });
 
+    it('formats string dob values returned by the repository', async () => {
+      const dto: CreateUserDto = { name: 'String DOB', dob: '2000-01-01' };
+      mockRepo.createUser.mockResolvedValue({
+        ...makeUser({ name: 'String DOB' }),
+        dob: '2000-01-01',
+      });
+
+      const result = await service.createUser(dto);
+
+      expect(result.dob).toBe('2000-01-01');
+    });
+
     it('propagates repository errors', async () => {
       const dto: CreateUserDto = { name: 'Bob', dob: '1990-06-15' };
       mockRepo.createUser.mockRejectedValue(new Error('db connection lost'));
@@ -127,7 +159,10 @@ describe('UsersService', () => {
 
   describe('getUserById', () => {
     it('returns a user response when user exists', async () => {
-      const entity = makeUser({ id: 5, name: 'Bob', dob: new Date('1990-06-15') });
+      const entity = {
+        ...makeUser({ id: 5, name: 'Bob', dob: new Date('1990-06-15') }),
+        dob: '1990-06-15',
+      } as unknown as User;
       mockRepo.getUserById.mockResolvedValue(entity);
 
       const result = await service.getUserById(5);

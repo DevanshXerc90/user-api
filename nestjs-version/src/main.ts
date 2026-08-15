@@ -29,6 +29,9 @@ async function bootstrap() {
     logger: ['error', 'warn'],
   });
 
+  // Enable CORS for frontend
+  app.enableCors();
+
   // Global validation pipe — equivalent to go-playground/validator
   // whitelist: true  → strip unknown fields (go-playground ignores extra fields)
   // forbidNonWhitelisted: false → don't error on extra fields (Go behaviour)
