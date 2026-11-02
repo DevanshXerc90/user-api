@@ -4,7 +4,7 @@ A clean, production-ready REST API written in Go 1.22 for managing users. It exp
 
 The server listens on port **3000** by default.
 
-## Tech Stack
+## Tech Stacks
 
 - **Language:** Go 1.22
 - **Framework:** [GoFiber](https://github.com/gofiber/fiber)
